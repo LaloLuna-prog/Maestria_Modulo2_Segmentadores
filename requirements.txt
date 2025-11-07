@@ -1,0 +1,15 @@
+numpy
+matplotlib
+pillow
+scikit-image
+opencv-python
+ipywidgets
+pandas
+tqdm
+torch
+torchvision
+pycocotools
+seaborn
+jupyter
+notebook
+
