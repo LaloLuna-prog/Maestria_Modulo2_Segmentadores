@@ -1,0 +1,225 @@
+CÓMO CONVERTIR EL NOTEBOOK A PDF
+=================================
+
+Este documento explica las diferentes formas de convertir el notebook
+segmentacion_frutas.ipynb a formato PDF.
+
+MÉTODO 1: Desde Jupyter Notebook (MÁS FÁCIL)
+===========================================
+
+Pasos:
+1. Abra el notebook en Jupyter Notebook
+2. Asegúrese de que todas las celdas estén ejecutadas (para que los resultados
+   aparezcan en el PDF)
+3. Vaya a: Archivo → Imprimir
+4. En la ventana de impresión, seleccione "Guardar como PDF"
+5. Elija la ubicación y guarde
+
+Ventajas:
+- No requiere instalaciones adicionales
+- Funciona directamente desde Jupyter
+- Incluye todos los resultados de las celdas
+
+Desventajas:
+- Depende de la configuración de impresión del sistema
+- Puede tener problemas con algunas visualizaciones complejas
+
+
+MÉTODO 2: Usando nbconvert (RECOMENDADO)
+=========================================
+
+Este método usa la herramienta jupyter nbconvert que ya viene instalada
+con Jupyter.
+
+Opción A: Conversión directa a PDF
+----------------------------------
+
+Requisitos:
+- Jupyter instalado (ya lo tiene)
+- LaTeX o pandoc instalado (puede que no lo tenga)
+
+Comando:
+```
+# Activar entorno virtual primero
+.\.venv\Scripts\Activate.ps1
+
+# Convertir a PDF
+jupyter nbconvert --to pdf segmentacion_frutas.ipynb
+```
+
+Si no tiene LaTeX instalado, verá un error. En ese caso, use la Opción B.
+
+Opción B: Convertir a HTML primero
+-----------------------------------
+
+Si no tiene LaTeX, puede convertir a HTML y luego usar el navegador:
+
+Comando:
+```
+# Activar entorno virtual
+.\.venv\Scripts\Activate.ps1
+
+# Convertir a HTML
+jupyter nbconvert --to html segmentacion_frutas.ipynb
+```
+
+Luego:
+1. Abra el archivo .html generado en su navegador
+2. Presione Ctrl+P (o Archivo → Imprimir)
+3. Seleccione "Guardar como PDF" como impresora
+4. Guarde el archivo
+
+Ventajas:
+- No requiere LaTeX
+- El HTML se ve bien en el navegador
+- Fácil de convertir desde el navegador
+
+Opción C: Usar el script proporcionado
+--------------------------------------
+
+He creado un script que intenta la conversión automáticamente:
+
+Comando:
+```
+powershell -ExecutionPolicy Bypass -File .\convert_to_pdf.ps1
+```
+
+El script:
+- Intenta convertir directamente a PDF
+- Si falla, convierte a HTML como alternativa
+- Le indica qué hacer en cada caso
+
+
+MÉTODO 3: Instalando LaTeX (PARA CONVERSIÓN DIRECTA)
+====================================================
+
+Si quiere convertir directamente a PDF sin pasar por HTML, necesita LaTeX.
+
+Instalación de MiKTeX (Windows):
+1. Descargue MiKTeX desde: https://miktex.org/download
+2. Instale siguiendo el asistente
+3. Reinicie la terminal
+4. Intente convertir de nuevo:
+   ```
+   jupyter nbconvert --to pdf segmentacion_frutas.ipynb
+   ```
+
+Nota: MiKTeX es grande (~200MB) pero permite conversión directa a PDF.
+
+
+MÉTODO 4: Usando JupyterLab (SI LO TIENE INSTALADO)
+====================================================
+
+Si usa JupyterLab en lugar de Jupyter Notebook:
+
+1. Abra el notebook en JupyterLab
+2. Vaya a: File → Export Notebook As... → PDF
+3. O use el menú: File → Save and Export Notebook As... → PDF
+
+Ventajas:
+- Interfaz más moderna
+- Conversión integrada
+
+
+MÉTODO 5: Usando servicios online
+=================================
+
+Si ninguno de los métodos anteriores funciona, puede usar servicios online:
+
+1. **nbviewer**: https://nbviewer.org/
+   - Suba su notebook (o use la URL de GitHub)
+   - Use la opción de impresión del navegador
+
+2. **Google Colab**:
+   - Suba el notebook a Google Colab
+   - File → Download → PDF
+
+3. **Convertidores online**:
+   - Busque "ipynb to pdf converter" en Google
+   - Suba el archivo y descargue el PDF
+
+
+RECOMENDACIÓN
+=============
+
+Para la mayoría de usuarios, recomiendo:
+
+1. **Primera opción**: Método 1 (desde Jupyter Notebook)
+   - Es el más simple y no requiere nada adicional
+
+2. **Segunda opción**: Método 2 Opción B (HTML → PDF desde navegador)
+   - Funciona siempre que tenga Jupyter instalado
+   - El resultado es bueno
+
+3. **Si necesita conversión automática frecuente**: Instale LaTeX (Método 3)
+   - Permite automatizar la conversión
+   - Mejor calidad de PDF
+
+
+SOLUCIÓN DE PROBLEMAS
+=====================
+
+Problema: "No module named 'nbconvert'"
+----------------------------------------
+Solución: Instale nbconvert en el entorno virtual:
+```
+.\.venv\Scripts\Activate.ps1
+pip install nbconvert
+```
+
+Problema: "LaTeX not found"
+---------------------------
+Solución: Use el método de HTML (Método 2 Opción B) o instale LaTeX
+
+Problema: "PDF se ve mal o incompleto"
+---------------------------------------
+Solución:
+- Asegúrese de ejecutar todas las celdas antes de convertir
+- Intente convertir a HTML primero y luego a PDF desde el navegador
+- Verifique que las visualizaciones se renderizaron correctamente
+
+Problema: "El PDF es muy grande"
+--------------------------------
+Solución:
+- Las imágenes grandes pueden hacer el PDF pesado
+- Considere reducir el tamaño de las imágenes antes de convertir
+- O use un servicio de compresión de PDF después
+
+
+CONSEJOS PARA UN BUEN PDF
+==========================
+
+1. **Ejecute todas las celdas antes de convertir**:
+   - Esto asegura que todos los resultados aparezcan en el PDF
+   - Use: Cell → Run All
+
+2. **Revise las visualizaciones**:
+   - Asegúrese de que los gráficos se vean bien
+   - Algunos gráficos interactivos pueden no aparecer en PDF
+
+3. **Verifique el tamaño**:
+   - Si el PDF es muy grande, considere dividir el notebook en secciones
+
+4. **Pruebe primero con HTML**:
+   - Convierta a HTML primero para ver cómo se verá
+   - Si se ve bien en HTML, se verá bien en PDF
+
+
+EJEMPLO DE USO DEL SCRIPT
+==========================
+
+Si usa el script convert_to_pdf.ps1:
+
+```powershell
+# Navegue a la carpeta del proyecto
+cd D:\Maestria\Proyecto\Segmentadores4
+
+# Ejecute el script
+powershell -ExecutionPolicy Bypass -File .\convert_to_pdf.ps1
+```
+
+El script intentará:
+1. Convertir directamente a PDF
+2. Si falla, convertirá a HTML
+3. Le dirá qué hacer en cada caso
+
