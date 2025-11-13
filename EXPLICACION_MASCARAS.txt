@@ -1,0 +1,369 @@
+EXPLICACIÓN DEL USO DE MÁSCARAS EN EL PROYECTO
+==============================================
+
+Este documento explica qué son las máscaras, por qué se necesitan, y cómo
+se usan en cada etapa del proyecto de segmentación de frutas.
+
+¿QUÉ ES UNA MÁSCARA?
+====================
+
+Una máscara es como una "plantilla" o "stencil" que nos dice exactamente
+dónde está cada objeto en una imagen. Es una imagen en blanco y negro donde:
+
+- Píxeles BLANCOS (valor 1): Indican que ese píxel pertenece al objeto
+- Píxeles NEGROS (valor 0): Indican que ese píxel es fondo
+
+Piense en una máscara como si fuera una silueta: si pone la máscara sobre
+la foto original, solo verá la parte de la foto que corresponde al objeto.
+
+Ejemplo visual:
+---------------
+Imagen original:        Máscara de manzana:
+[Foto con manzana]  →   [Negro, Negro, Negro]
+                        [Negro, Blanco, Negro]  ← Solo la manzana es blanca
+                        [Negro, Negro, Negro]
+
+¿POR QUÉ SE NECESITAN LAS MÁSCARAS?
+===================================
+
+Las máscaras son fundamentales en este proyecto por varias razones:
+
+1. ENTRENAMIENTO DE LOS SEGMENTADORES
+-------------------------------------
+Los métodos ColorGaussian y SLICGraph necesitan "aprender" qué colores
+tienen las frutas. Para hacer esto, necesitan saber exactamente qué píxeles
+pertenecen a cada fruta. Las máscaras les dicen: "estos píxeles son de una
+manzana, aprende de ellos".
+
+Sin máscaras, los métodos no sabrían qué píxeles mirar para aprender.
+
+2. EVALUACIÓN DE RESULTADOS
+----------------------------
+Para saber si un método funciona bien, necesitamos comparar lo que encontró
+con lo que realmente hay. Las máscaras son la "respuesta correcta" (ground
+truth) que usamos para calificar el desempeño.
+
+Es como cuando un estudiante hace un examen: necesita la hoja de respuestas
+correctas para saber qué tan bien lo hizo.
+
+3. VISUALIZACIÓN
+----------------
+Las máscaras nos permiten mostrar visualmente qué encontró cada método y
+compararlo con la realidad. Podemos superponer las máscaras sobre las imágenes
+originales para ver los resultados.
+
+ETAPAS DEL PROYECTO Y USO DE MÁSCARAS
+======================================
+
+ETAPA 1: GENERACIÓN DE MÁSCARAS GROUND TRUTH
+--------------------------------------------
+
+¿Cuándo ocurre?
+- Al inicio del proyecto, después de descargar las imágenes
+
+¿Qué se hace?
+- Se convierten las anotaciones de COCO (formato RLE) a máscaras binarias
+- Se organizan en un formato especial: tensor 3D
+
+¿Por qué en esta etapa?
+- Necesitamos tener las máscaras listas antes de entrenar los métodos
+- Es más eficiente generar todas las máscaras de una vez que generarlas
+  cada vez que las necesitamos
+
+Proceso técnico:
+1. Para cada imagen:
+   - Se obtienen todas las anotaciones de frutas (manzanas, plátanos, naranjas)
+   - Cada anotación está en formato RLE (comprimido)
+   - Se decodifica cada RLE a una máscara binaria 2D
+   - Se organiza en un tensor 3D: (3, altura, ancho)
+     * Canal 0 = máscara de manzanas
+     * Canal 1 = máscara de plátanos
+     * Canal 2 = máscara de naranjas
+
+2. Se guarda en formato .npz (comprimido):
+   - Nombre: mismo que la imagen pero con extensión .npz
+   - Ejemplo: 000000006614.jpg → 000000006614.npz
+   - Formato eficiente para guardar arrays de numpy
+
+Ejemplo de estructura:
+----------------------
+Imagen: 000000006614.jpg (640x480 píxeles)
+
+Máscara guardada: 000000006614.npz
+  Contiene un tensor de forma (3, 480, 640):
+  
+  mask[0] = Máscara de manzanas (480x640, valores 0 o 1)
+  mask[1] = Máscara de plátanos (480x640, valores 0 o 1)
+  mask[2] = Máscara de naranjas (480x640, valores 0 o 1)
+
+¿Por qué este formato?
+- Permite tener todas las frutas de una imagen en un solo archivo
+- Fácil de cargar y usar
+- Eficiente en almacenamiento (formato comprimido)
+
+
+ETAPA 2: ENTRENAMIENTO DE COLORGAUSSIAN
+----------------------------------------
+
+¿Cuándo ocurre?
+- Cuando se ejecuta: color_segmenter.fit(image_data)
+
+¿Cómo se usan las máscaras?
+- El método carga la máscara de cada imagen
+- Extrae solo los píxeles donde la máscara es 1 (blanco)
+- Estos píxeles son los que "pertenecen" a la fruta
+- Aprende el color promedio y variabilidad de esos píxeles
+
+Proceso paso a paso:
+1. Para cada imagen de entrenamiento:
+   - Carga: mask_stack = np.load("000000006614.npz")["mask"]
+   - Selecciona el canal de la fruta: target_mask = mask_stack[0] (manzana)
+   - Carga la imagen RGB original
+   - Usa la máscara para extraer píxeles: rgb[target_mask]
+     * Solo obtiene los píxeles donde target_mask == 1
+   - Convierte esos píxeles a HSV
+   - Los acumula en una lista
+
+2. Después de procesar todas las imágenes:
+   - Tiene todos los píxeles de todas las manzanas de todas las fotos
+   - Calcula estadísticas: media y varianza de color HSV
+   - Guarda estos parámetros para usar en predicción
+
+¿Por qué se necesitan aquí?
+- Sin máscaras, el método no sabría qué píxeles son de la fruta
+- Aprendería de píxeles del fondo, de otras frutas, etc.
+- Las máscaras le dicen exactamente qué píxeles debe aprender
+
+
+ETAPA 3: ENTRENAMIENTO DE SLICGRAPH
+------------------------------------
+
+¿Cuándo ocurre?
+- Cuando se ejecuta: slic_segmenter.fit(image_data)
+
+¿Cómo se usan las máscaras?
+- Similar a ColorGaussian, pero con un paso adicional
+- El método genera superpixeles (pedacitos de la imagen)
+- Compara cada superpíxel con la máscara para saber cuáles pertenecen a la fruta
+- Aprende el color de los superpixeles que se solapan con la máscara
+
+Proceso paso a paso:
+1. Para cada imagen de entrenamiento:
+   - Carga la máscara de la fruta objetivo
+   - Genera superpixeles de la imagen (divide en ~250 pedacitos)
+   - Para cada superpíxel:
+     * Calcula qué porcentaje se solapa con la máscara
+     * Si se solapa >20% → es un superpíxel "positivo"
+     * Calcula el color HSV promedio de ese superpíxel
+   - Acumula los colores de los superpixeles positivos
+
+2. Después de procesar todas las imágenes:
+   - Tiene colores de todos los superpixeles que pertenecen a la fruta
+   - Calcula un prototipo (color promedio)
+   - Calcula variabilidad y umbral de distancia
+
+¿Por qué se necesitan aquí?
+- Para identificar qué superpixeles pertenecen a la fruta
+- Sin máscaras, no sabría cuáles superpixeles son "positivos"
+- Necesita saber qué superpixeles debe usar para aprender
+
+
+ETAPA 4: PREDICCIÓN (todos los métodos)
+----------------------------------------
+
+¿Cuándo ocurre?
+- Cuando se ejecuta: segmenter.predict(imagen, "apple")
+
+¿Cómo se usan las máscaras?
+- En esta etapa NO se usan las máscaras para predecir
+- Las máscaras se usan DESPUÉS para evaluar qué tan bien funcionó
+
+Proceso:
+1. El método genera su propia máscara de predicción
+   - ColorGaussian: busca píxeles con colores similares a los aprendidos
+   - SLICGraph: identifica superpixeles similares al prototipo
+   - MaskRCNN: usa la red neuronal para generar máscaras
+
+2. Esta máscara de predicción se compara con la máscara ground truth
+   - Para calcular métricas (IoU, precisión, recall, etc.)
+
+
+ETAPA 5: EVALUACIÓN
+-------------------
+
+¿Cuándo ocurre?
+- Cuando se ejecuta: evaluate_segmenter("ColorGaussian", segmenter, images)
+
+¿Cómo se usan las máscaras?
+- Se cargan las máscaras ground truth
+- Se comparan con las máscaras predichas por cada método
+- Se calculan métricas de desempeño
+
+Proceso paso a paso:
+1. Para cada imagen y cada fruta:
+   - Carga la máscara ground truth: mask_stack[fruit_idx]
+   - Obtiene la máscara predicha del segmentador
+   - Compara píxel por píxel:
+     * TP (True Positive): predicho=1 y ground truth=1 (correcto)
+     * FP (False Positive): predicho=1 y ground truth=0 (falso positivo)
+     * FN (False Negative): predicho=0 y ground truth=1 (se perdió)
+     * TN (True Negative): predicho=0 y ground truth=0 (correcto)
+
+2. Calcula métricas:
+   - IoU = TP / (TP + FP + FN)
+   - Precisión = TP / (TP + FP)
+   - Recall = TP / (TP + FN)
+   - etc.
+
+¿Por qué se necesitan aquí?
+- Sin máscaras ground truth, no sabríamos si las predicciones son correctas
+- Son la "respuesta correcta" para calificar el desempeño
+- Permiten comparar objetivamente los diferentes métodos
+
+
+ETAPA 6: VISUALIZACIÓN
+----------------------
+
+¿Cuándo ocurre?
+- En la sección de exploración del dataset
+- En el visor interactivo al final del notebook
+
+¿Cómo se usan las máscaras?
+- Se superponen sobre las imágenes originales
+- Se muestran con colores semitransparentes
+- Permiten ver visualmente qué encontró cada método
+
+Proceso:
+1. Carga la imagen original
+2. Carga la máscara (ground truth o predicción)
+3. Crea una imagen con color semitransparente:
+   - Rojo para manzanas
+   - Amarillo para plátanos
+   - Naranja para naranjas
+4. Superpone sobre la imagen original
+
+¿Por qué se necesitan aquí?
+- Permiten inspección visual de los resultados
+- Ayudan a entender errores y aciertos
+- Facilitan la comparación entre métodos
+
+
+RESUMEN DEL FLUJO DE MÁSCARAS
+==============================
+
+1. GENERACIÓN (Etapa 1):
+   Anotaciones COCO (RLE) → Máscaras binarias → Archivos .npz
+
+2. ENTRENAMIENTO (Etapas 2 y 3):
+   Carga máscaras → Extrae píxeles/superpixeles de frutas → Aprende parámetros
+
+3. PREDICCIÓN (Etapa 4):
+   Método genera máscara predicha (NO usa ground truth)
+
+4. EVALUACIÓN (Etapa 5):
+   Compara máscara predicha vs máscara ground truth → Calcula métricas
+
+5. VISUALIZACIÓN (Etapa 6):
+   Superpone máscaras sobre imágenes → Muestra resultados
+
+FORMATO DE LAS MÁSCARAS
+=======================
+
+Estructura del archivo .npz:
+----------------------------
+- Nombre: mismo que la imagen pero .npz
+- Contenido: un diccionario con clave "mask"
+- Valor: array numpy de forma (3, altura, ancho)
+  * Tipo: uint8 (valores 0 o 1)
+  * Canal 0: manzanas
+  * Canal 1: plátanos
+  * Canal 2: naranjas
+
+Ejemplo de carga:
+-----------------
+import numpy as np
+
+# Cargar máscara
+mask_file = "data/coco_frutas/masks/000000006614.npz"
+mask_stack = np.load(mask_file)["mask"]
+
+# Acceder a máscara de manzanas
+apple_mask = mask_stack[0]  # Array 2D (altura, ancho)
+
+# Verificar si hay manzanas
+if apple_mask.any():  # Si hay algún píxel con valor 1
+    print("Esta imagen tiene manzanas")
+
+# Contar píxeles de manzana
+num_pixels = apple_mask.sum()  # Suma todos los 1s
+
+¿POR QUÉ FORMATO .NPZ?
+----------------------
+- Comprime los datos (ahorra espacio)
+- Rápido de cargar
+- Formato estándar de numpy
+- Permite guardar múltiples arrays en un solo archivo
+
+MANEJO DE MÚLTIPLES INSTANCIAS
+===============================
+
+¿Qué pasa si hay varias manzanas en una imagen?
+-----------------------------------------------
+Las máscaras se combinan usando la operación OR lógico:
+
+- Si hay 3 manzanas en la imagen
+- Cada una tiene su propia anotación en COCO
+- Cada anotación se convierte a una máscara individual
+- Todas las máscaras de manzanas se combinan en un solo canal
+- Resultado: un canal con todas las manzanas juntas
+
+Ejemplo:
+--------
+Manzana 1: [0, 0, 0, 1, 1, 0, 0]
+Manzana 2: [0, 1, 1, 0, 0, 0, 0]
+Manzana 3: [0, 0, 0, 0, 0, 1, 1]
+
+Máscara combinada: [0, 1, 1, 1, 1, 1, 1]
+                    (OR de las tres)
+
+Esto se hace con: np.maximum(mask1, mask2, mask3)
+
+VENTAJAS DE ESTE ENFOQUE
+========================
+
+1. Eficiencia:
+   - Generamos máscaras una vez al inicio
+   - Las reutilizamos en todas las etapas
+   - No necesitamos regenerarlas cada vez
+
+2. Consistencia:
+   - Todas las etapas usan las mismas máscaras
+   - Garantiza que entrenamiento y evaluación usan los mismos datos
+
+3. Organización:
+   - Un archivo por imagen
+   - Fácil de cargar y usar
+   - Formato estándar y comprimido
+
+4. Flexibilidad:
+   - Podemos cargar solo la máscara de una fruta específica
+   - Podemos combinar máscaras de diferentes frutas
+   - Fácil de visualizar y manipular
+
+CONCLUSIÓN
+==========
+
+Las máscaras son el elemento central del proyecto:
+
+- Permiten que los métodos aprendan qué colores tienen las frutas
+- Proporcionan la "respuesta correcta" para evaluar desempeño
+- Facilitan la visualización y comprensión de resultados
+- Se generan una vez al inicio y se reutilizan en todas las etapas
+
+Sin máscaras, el proyecto no podría funcionar: los métodos no sabrían qué
+aprender, no podríamos evaluar su desempeño, y no podríamos visualizar
+los resultados.
+
+Las máscaras son como el "mapa del tesoro" que guía todo el proceso de
+segmentación, desde el entrenamiento hasta la evaluación final.
+
