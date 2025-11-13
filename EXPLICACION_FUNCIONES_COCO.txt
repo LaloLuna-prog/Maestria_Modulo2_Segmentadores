@@ -1,0 +1,305 @@
+EXPLICACIÓN DE LAS FUNCIONES DE COCO
+====================================
+
+Este documento explica las funciones de la librería pycocotools que se usan
+en el proyecto para trabajar con el dataset COCO.
+
+¿QUÉ ES COCO?
+-------------
+
+COCO (Common Objects in Context) es un dataset muy grande con millones de fotos
+donde cada objeto está marcado y etiquetado. Es como un álbum de fotos gigante
+donde alguien ya dibujó círculos alrededor de cada objeto y escribió qué es cada uno.
+
+La librería pycocotools nos ayuda a leer y usar esa información de manera fácil.
+
+FUNCIÓN 1: COCO() - El Constructor
+------------------------------------
+
+¿Qué hace?
+----------
+Crea un objeto que nos permite acceder a todas las anotaciones del dataset.
+Es como abrir un libro y tener un índice que nos dice dónde está cada cosa.
+
+Ejemplo en el código:
+    coco = COCO(str(VAL_ANNOTATIONS))
+
+¿Qué hace exactamente?
+- Lee el archivo JSON con todas las anotaciones
+- Crea índices internos para buscar rápido (como un índice de libro)
+- Guarda información sobre imágenes, categorías y anotaciones
+
+Parámetros:
+- ruta al archivo JSON: El archivo instances_val2017.json que contiene
+  todas las anotaciones del conjunto de validación
+
+Retorna:
+- Un objeto COCO que podemos usar para hacer búsquedas
+
+Tiempo: Tarda unos segundos porque tiene que leer y organizar mucha información
+(~815,000 objetos en el archivo de validación).
+
+
+FUNCIÓN 2: coco.getImgIds() - Buscar Imágenes
+----------------------------------------------
+
+¿Qué hace?
+----------
+Busca los IDs (números de identificación) de las imágenes que cumplen ciertas
+condiciones. Es como buscar en un catálogo: "dame todas las fotos que tienen
+manzanas".
+
+Ejemplo en el código:
+    cat_img_ids = coco.getImgIds(catIds=[cat_id])
+
+¿Qué hace exactamente?
+- Busca en el índice todas las imágenes que contienen objetos de ciertas categorías
+- Retorna una lista de números (IDs) que identifican esas imágenes
+
+Parámetros:
+- catIds: Lista de IDs de categorías que queremos buscar
+  Ejemplo: [53] busca todas las imágenes con manzanas
+           [52, 53] busca imágenes con plátanos O manzanas
+
+Retorna:
+- Lista de números (IDs de imágenes)
+  Ejemplo: [123, 456, 789, ...]
+
+Uso típico:
+- Primero buscamos qué imágenes tienen las frutas que nos interesan
+- Luego usamos esos IDs para obtener más información
+
+
+FUNCIÓN 3: coco.loadImgs() - Cargar Información de Imágenes
+--------------------------------------------------------------
+
+¿Qué hace?
+----------
+Toma una lista de IDs de imágenes y nos da toda la información sobre ellas.
+Es como pedirle a alguien que busque en un archivo y nos traiga los datos
+completos de ciertas fotos.
+
+Ejemplo en el código:
+    image_data = coco.loadImgs(list(image_ids))
+
+¿Qué hace exactamente?
+- Busca en el JSON la información de cada imagen usando su ID
+- Retorna una lista de diccionarios, uno por cada imagen
+
+Parámetros:
+- ids: Lista de IDs de imágenes que queremos consultar
+  Ejemplo: [123, 456, 789]
+
+Retorna:
+- Lista de diccionarios, cada uno con información de una imagen:
+  {
+    "id": 123,
+    "file_name": "000000000123.jpg",
+    "width": 640,
+    "height": 480,
+    "coco_url": "http://...",
+    ...
+  }
+
+Información que contiene cada diccionario:
+- id: Número único de la imagen
+- file_name: Nombre del archivo (ej: "000000000123.jpg")
+- width, height: Dimensiones de la imagen en píxeles
+- coco_url: URL para descargar la imagen desde internet
+
+
+FUNCIÓN 4: coco.getAnnIds() - Buscar Anotaciones
+-------------------------------------------------
+
+¿Qué hace?
+----------
+Busca los IDs de las anotaciones (marcas de objetos) que cumplen ciertas
+condiciones. Es como buscar: "dame todas las marcas de manzanas en la imagen 123".
+
+Ejemplo en el código:
+    ann_ids = coco.getAnnIds(imgIds=[img["id"]], catIds=list(FRUIT_CATEGORIES.values()))
+
+¿Qué hace exactamente?
+- Busca todas las anotaciones que:
+  * Pertenecen a ciertas imágenes (imgIds)
+  * Son de ciertas categorías (catIds)
+- Retorna una lista de IDs de anotaciones
+
+Parámetros:
+- imgIds: Lista de IDs de imágenes (opcional)
+  Si se especifica, solo busca anotaciones de esas imágenes
+  Si es None, busca en todas las imágenes
+  
+- catIds: Lista de IDs de categorías (opcional)
+  Si se especifica, solo busca objetos de esas categorías
+  Si es None, busca todas las categorías
+
+Retorna:
+- Lista de números (IDs de anotaciones)
+  Ejemplo: [1001, 1002, 1003, ...]
+
+Uso típico:
+- Primero encontramos las imágenes que queremos
+- Luego buscamos todas las anotaciones (marcas de objetos) en esas imágenes
+
+
+FUNCIÓN 5: coco.loadAnns() - Cargar Anotaciones
+------------------------------------------------
+
+¿Qué hace?
+----------
+Toma una lista de IDs de anotaciones y nos da toda la información sobre ellas.
+Es como pedir los detalles completos de cada marca de objeto.
+
+Ejemplo en el código:
+    annotations = coco.loadAnns(ann_ids)
+
+¿Qué hace exactamente?
+- Busca en el JSON la información de cada anotación usando su ID
+- Retorna una lista de diccionarios, uno por cada anotación
+
+Parámetros:
+- ids: Lista de IDs de anotaciones que queremos consultar
+  Ejemplo: [1001, 1002, 1003]
+
+Retorna:
+- Lista de diccionarios, cada uno con información de una anotación:
+  {
+    "id": 1001,
+    "image_id": 123,
+    "category_id": 53,
+    "segmentation": {...},
+    "area": 5000,
+    "bbox": [100, 200, 50, 60],
+    ...
+  }
+
+Información importante que contiene:
+- id: Número único de la anotación
+- image_id: ID de la imagen a la que pertenece
+- category_id: ID de la categoría del objeto (53=manzana, 52=plátano, etc.)
+- segmentation: Información sobre la forma del objeto (en formato especial)
+- area: Área del objeto en píxeles cuadrados
+- bbox: Bounding box [x, y, ancho, alto] - el rectángulo que contiene el objeto
+
+
+FUNCIÓN 6: coco.annToRLE() - Convertir a Formato RLE
+------------------------------------------------------
+
+¿Qué hace?
+----------
+Convierte la información de segmentación de una anotación a formato RLE
+(Run-Length Encoding). Es como convertir una descripción complicada a un
+formato más compacto y fácil de usar.
+
+Ejemplo en el código:
+    rle = coco.annToRLE(ann)
+
+¿Qué hace exactamente?
+- Toma la información de segmentación de una anotación
+- La convierte a formato RLE, que es una forma eficiente de representar
+  máscaras binarias (imágenes en blanco y negro)
+
+Parámetros:
+- ann: Un diccionario de anotación (el que obtenemos de loadAnns)
+
+Retorna:
+- Un diccionario RLE con información codificada:
+  {
+    "size": [480, 640],  # Dimensiones de la imagen
+    "counts": "bXk...",   # Datos codificados de la máscara
+  }
+
+¿Por qué RLE?
+- Es mucho más eficiente que guardar cada píxel individualmente
+- Una máscara que ocupa millones de números se puede comprimir a unos pocos
+- Es el formato estándar usado en COCO para guardar máscaras
+
+
+FUNCIÓN 7: coco_mask.decode() - Decodificar RLE a Máscara
+-----------------------------------------------------------
+
+¿Qué hace?
+----------
+Convierte un RLE (formato comprimido) de vuelta a una imagen binaria
+(máscara). Es como descomprimir un archivo ZIP para ver su contenido.
+
+Ejemplo en el código:
+    m = coco_mask.decode(rle)
+
+¿Qué hace exactamente?
+- Toma un RLE (formato comprimido)
+- Lo decodifica y crea una imagen 2D (matriz) donde:
+  * 1 (o True) = el píxel pertenece al objeto
+  * 0 (o False) = el píxel es fondo
+
+Parámetros:
+- rle: Un diccionario RLE (el que obtenemos de annToRLE)
+
+Retorna:
+- Un array numpy 2D (matriz) de forma (altura, ancho)
+  - Valores son 0 o 1 (o True/False)
+  - 1 = píxel del objeto
+  - 0 = píxel de fondo
+
+Ejemplo visual:
+  Si el objeto es un círculo en el centro de una imagen 10x10:
+  
+  [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+   [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+   [0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
+   [0, 0, 1, 1, 1, 1, 1, 0, 0, 0],
+   [0, 0, 1, 1, 1, 1, 1, 0, 0, 0],
+   [0, 0, 1, 1, 1, 1, 1, 0, 0, 0],
+   [0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
+   [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+   [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+   [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]
+
+
+FLUJO COMPLETO: Cómo se usan todas juntas
+-------------------------------------------
+
+1. Creamos el objeto COCO:
+   coco = COCO("instances_val2017.json")
+   → Esto carga y organiza todas las anotaciones
+
+2. Buscamos imágenes con frutas:
+   image_ids = coco.getImgIds(catIds=[53])  # Imágenes con manzanas
+   → Obtenemos: [123, 456, 789, ...]
+
+3. Cargamos información de esas imágenes:
+   image_data = coco.loadImgs([123, 456, 789])
+   → Obtenemos: [{"id": 123, "file_name": "...", ...}, ...]
+
+4. Para cada imagen, buscamos sus anotaciones:
+   ann_ids = coco.getAnnIds(imgIds=[123], catIds=[53])
+   → Obtenemos: [1001, 1002, ...] (anotaciones de manzanas en imagen 123)
+
+5. Cargamos información de esas anotaciones:
+   annotations = coco.loadAnns([1001, 1002])
+   → Obtenemos: [{"id": 1001, "category_id": 53, "segmentation": {...}, ...}, ...]
+
+6. Convertimos cada anotación a RLE:
+   rle = coco.annToRLE(annotation)
+   → Obtenemos: {"size": [480, 640], "counts": "..."}
+
+7. Decodificamos RLE a máscara:
+   mask = coco_mask.decode(rle)
+   → Obtenemos: array 2D con 0s y 1s que muestra dónde está la fruta
+
+RESUMEN EN TÉRMINOS SIMPLES
+----------------------------
+
+- COCO(): Abre el "libro" de anotaciones
+- getImgIds(): Busca fotos que tienen ciertos objetos
+- loadImgs(): Obtiene información sobre esas fotos
+- getAnnIds(): Busca las marcas de objetos en esas fotos
+- loadAnns(): Obtiene información sobre esas marcas
+- annToRLE(): Convierte la marca a formato comprimido
+- decode(): Convierte el formato comprimido a una imagen en blanco y negro
+            que muestra dónde está el objeto
+
+Es como una cadena: primero encontramos las fotos, luego las marcas en esas
+fotos, luego convertimos esas marcas a imágenes que podemos usar.
+
